@@ -4,7 +4,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>我的英文小練習</title>
-<style>
+  .feedback-box {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 16px;
+    background: #fff8df;
+  }
+
+  .practice-stars {
+    font-size: 16px;
+    line-height: 1.9;
+  }
+
+  .encouragement {
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.6;
+    min-height: 34px;
+    margin: 12px 0;
+    color: #775000;
+  }
+
+  .parent-feedback {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 14px;
+    background: #f3f7ff;
+  }
+
+  .celebrate {
+    animation: feedback-pop 0.45s ease-out;
+  }
+
+  @keyframes feedback-pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .celebrate { animation: none; }
+  }
+
+ <style>
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 20px;
@@ -71,6 +113,45 @@
       <button id="hearExample">🔊 聽例句</button>
     </div>
     <p id="voiceStatus" class="small" role="status"></p>
+
+       <section class="feedback-box" aria-label="練習鼓勵">
+      <div id="practiceStars" class="practice-stars">
+        聽示範 ○　錄音 ○　回放 ○　拼字 ○
+      </div>
+
+      <p id="encouragement" class="encouragement"
+         role="status" aria-live="polite">
+        準備好了嗎？先聽聽看！
+      </p>
+
+      <p class="small">
+        星星代表完成練習步驟，不是發音評分。
+      </p>
+    </section>
+
+    <details class="parent-feedback">
+      <summary>👩‍👦 家長回饋</summary>
+
+      <p class="small">
+        請先聽孩子的錄音，再選擇鼓勵。
+        這是家長回饋，不是程式自動評分。
+      </p>
+
+      <div class="row">
+        <button id="parentTry" disabled>
+          🔁 Try again
+        </button>
+        <button id="parentGood" disabled>
+          🌟 Good
+        </button>
+        <button id="parentExcellent" disabled>
+          🎉 Excellent
+        </button>
+      </div>
+
+      <p id="parentFeedbackMessage" class="status"
+         role="status" aria-live="polite"></p>
+    </details>
 
     <hr class="divider">
 
