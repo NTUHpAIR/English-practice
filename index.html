@@ -96,6 +96,66 @@
   summary { cursor: pointer; font-size: 18px; padding: 8px 0; }
   label { display: block; margin: 10px 0; }
   [hidden] { display: none !important; }
+
+    .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 18px 0;
+  }
+
+  .stat-item {
+    padding: 14px;
+    border-radius: 14px;
+    background: #eef4ff;
+    text-align: center;
+  }
+
+  .stat-number {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    color: #396be8;
+    margin-bottom: 5px;
+  }
+
+  .stat-label {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+
+  .review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .review-table th,
+  .review-table td {
+    padding: 10px;
+    border-bottom: 1px solid #dce4f3;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .review-table th {
+    background: #f3f7ff;
+    white-space: nowrap;
+  }
+
+  .review-table td {
+    overflow-wrap: anywhere;
+  }
+
+  #reviewNext {
+    padding-left: 22px;
+    line-height: 1.8;
+  }
 </style>
 </head>
 <body>
@@ -232,8 +292,87 @@
   </section>
 
   <div class="row">
-    <button id="end">結束練習並清除錄音</button>
+    <button id="end" class="primary">
+      📊 完成本次練習／查看總結
+    </button>
   </div>
+
+  <section id="dashboard" class="card" hidden
+           aria-labelledby="dashboardTitle">
+
+    <h2 id="dashboardTitle" tabindex="-1">
+      📊 英文課後練習總結
+    </h2>
+
+    <p id="dashboardDate" class="small"></p>
+
+    <div id="dashboardStats" class="dashboard-stats"></div>
+
+    <h3>🔁 下次優先複習</h3>
+    <ul id="reviewNext"></ul>
+
+    <h3>📝 單字明細</h3>
+    <p class="small">
+      「拼字完成」代表本次曾輸入正確答案，不代表首次答對。
+      家長評價不是自動發音評分。
+    </p>
+
+    <div class="table-wrap">
+      <table class="review-table">
+        <thead>
+          <tr>
+            <th scope="col">單字</th>
+            <th scope="col">中文</th>
+            <th scope="col">聽</th>
+            <th scope="col">錄</th>
+            <th scope="col">回放</th>
+            <th scope="col">拼字</th>
+            <th scope="col">家長評價</th>
+            <th scope="col">備註</th>
+          </tr>
+        </thead>
+        <tbody id="reviewTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="row">
+      <button id="copySummary" class="primary">
+        📋 複製 Notion 摘要
+      </button>
+
+      <button id="downloadCSV">
+        ⬇️ 下載 CSV 明細
+      </button>
+    </div>
+
+    <p id="exportStatus" class="status"
+       role="status" aria-live="polite"></p>
+
+    <details>
+      <summary>查看／手動複製摘要</summary>
+
+      <label for="summaryText">Notion 摘要</label>
+      <textarea id="summaryText" readonly
+                style="min-height:260px;"></textarea>
+    </details>
+
+    <div class="row">
+      <button id="returnPractice">
+        ← 回去繼續練習
+      </button>
+
+      <button id="newPractice">
+        開始新的練習並清除本次紀錄
+      </button>
+    </div>
+
+    <p class="small">
+      總結只保留在目前頁面，尚未自動保存或傳到 Notion。
+      請在重新整理或關閉頁面前完成複製／下載。
+      錄音不包含在報表中。
+    </p>
+  </section>
+  
   <p class="small center">
     本程式不傳送單字或錄音、不使用分析追蹤，
     也不保存本次練習進度。<br>
@@ -377,6 +516,398 @@ function resetPracticeFeedback() {
   praisedComplete = new Set();
   parentReviews = new Map();
 }
+  let sessionStartedAt = new Date();
+let dashboardSnapshot = null;
+
+function formatLocalDate(date) {
+  const pad = value => String(value).padStart(2, "0");
+
+  return (
+    `${date.getFullYear()}-` +
+    `${pad(date.getMonth() + 1)}-` +
+    `${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:` +
+    `${pad(date.getMinutes())}`
+  );
+}
+
+function createDashboardSnapshot() {
+  const rows = words.map((item, itemIndex) => {
+    const steps = practiceSteps.get(itemIndex) || {};
+    const review = parentReviews.get(itemIndex) || {};
+
+    return {
+      word: item.word,
+      meaning: item.meaning,
+      listened: Boolean(steps.listened),
+      recorded: Boolean(steps.recorded),
+      replayed: Boolean(steps.replayed),
+      spelled: Boolean(steps.spelled),
+      rating: review.rating || "",
+      note: review.note || ""
+    };
+  });
+
+  return {
+    startedAt: formatLocalDate(sessionStartedAt),
+    summarizedAt: formatLocalDate(new Date()),
+    rows
+  };
+}
+
+function getDashboardStats(snapshot) {
+  const rows = snapshot.rows;
+
+  return {
+    total: rows.length,
+
+    allSteps: rows.filter(row =>
+      row.listened &&
+      row.recorded &&
+      row.replayed &&
+      row.spelled
+    ).length,
+
+    spelled: rows.filter(row => row.spelled).length,
+    rated: rows.filter(row => row.rating).length,
+
+    excellent: rows.filter(row =>
+      row.rating === "Excellent"
+    ).length,
+
+    good: rows.filter(row =>
+      row.rating === "Good"
+    ).length,
+
+    tryAgain: rows.filter(row =>
+      row.rating === "Try again"
+    ).length,
+
+    unrated: rows.filter(row => !row.rating).length
+  };
+}
+
+function buildNotionSummary(snapshot) {
+  const stats = getDashboardStats(snapshot);
+  const yesNo = value => value ? "完成" : "未完成";
+
+  const lines = [
+    "英文課後複習紀錄",
+    `開始時間：${snapshot.startedAt}`,
+    `總結時間：${snapshot.summarizedAt}`,
+    "",
+    `本次單字：${stats.total} 個`,
+    `完成聽、錄、回放、拼字四項：${stats.allSteps} 個`,
+    `拼字曾答對：${stats.spelled} 個`,
+    `家長已評價：${stats.rated} 個`,
+    "",
+    "家長評價統計",
+    `- Excellent：${stats.excellent}`,
+    `- Good：${stats.good}`,
+    `- Try again：${stats.tryAgain}`,
+    `- 未評價：${stats.unrated}`,
+    "",
+    "下次優先複習"
+  ];
+
+  const reviewRows = snapshot.rows.filter(row =>
+    row.rating === "Try again"
+  );
+
+  if (reviewRows.length) {
+    reviewRows.forEach(row => {
+      lines.push(
+        `- ${row.word}（${row.meaning}）` +
+        (row.note ? `：${row.note}` : "")
+      );
+    });
+  } else {
+    lines.push("- 本次沒有家長標記為 Try again 的單字。");
+    lines.push("  這不代表全部已掌握。");
+  }
+
+  lines.push("", "單字明細");
+
+  snapshot.rows.forEach(row => {
+    lines.push(
+      `- ${row.word}（${row.meaning}）`,
+      `  聽：${yesNo(row.listened)}；` +
+      `錄：${yesNo(row.recorded)}；` +
+      `回放：${yesNo(row.replayed)}；` +
+      `拼字：${yesNo(row.spelled)}`,
+      `  家長評價：${row.rating || "未評價"}`
+    );
+
+    if (row.note) {
+      lines.push(`  備註：${row.note}`);
+    }
+  });
+
+  lines.push(
+    "",
+    "紀錄說明",
+    "- 家長評價由家長選擇，未進行自動發音評分。",
+    "- 拼字完成代表本次曾輸入正確答案，不代表首次答對。",
+    "- 錄音練習完成只代表曾取得錄音，不代表發音正確。",
+    "- 本報表未包含或保存音訊。"
+  );
+
+  return lines.join("\n");
+}
+
+function renderDashboard(snapshot) {
+  const stats = getDashboardStats(snapshot);
+
+  $("dashboardDate").textContent =
+    `開始：${snapshot.startedAt}｜總結：${snapshot.summarizedAt}`;
+
+  $("dashboardStats").replaceChildren();
+
+  const statItems = [
+    ["本次單字", stats.total],
+    ["四項都完成", stats.allSteps],
+    ["拼字曾答對", stats.spelled],
+    ["家長已評價", stats.rated],
+    ["Excellent", stats.excellent],
+    ["Good", stats.good],
+    ["Try again", stats.tryAgain],
+    ["未評價", stats.unrated]
+  ];
+
+  statItems.forEach(([label, value]) => {
+    const card = document.createElement("div");
+    card.className = "stat-item";
+
+    const number = document.createElement("span");
+    number.className = "stat-number";
+    number.textContent = String(value);
+
+    const caption = document.createElement("span");
+    caption.className = "stat-label";
+    caption.textContent = label;
+
+    card.append(number, caption);
+    $("dashboardStats").append(card);
+  });
+
+  $("reviewNext").replaceChildren();
+
+  const reviewRows = snapshot.rows.filter(row =>
+    row.rating === "Try again"
+  );
+
+  if (reviewRows.length) {
+    reviewRows.forEach(row => {
+      const li = document.createElement("li");
+
+      li.textContent =
+        `${row.word}（${row.meaning}）` +
+        (row.note ? `：${row.note}` : "");
+
+      $("reviewNext").append(li);
+    });
+  } else {
+    const li = document.createElement("li");
+    li.textContent =
+      "沒有家長標記為 Try again 的單字；這不代表全部已掌握。";
+    $("reviewNext").append(li);
+  }
+
+  $("reviewTableBody").replaceChildren();
+
+  snapshot.rows.forEach(row => {
+    const tr = document.createElement("tr");
+
+    const values = [
+      row.word,
+      row.meaning,
+      row.listened ? "✓" : "—",
+      row.recorded ? "✓" : "—",
+      row.replayed ? "✓" : "—",
+      row.spelled ? "✓" : "—",
+      row.rating || "未評價",
+      row.note
+    ];
+
+    values.forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    });
+
+    $("reviewTableBody").append(tr);
+  });
+
+  $("summaryText").value = buildNotionSummary(snapshot);
+  $("exportStatus").textContent = "";
+}
+
+function showDashboard() {
+  if (recordingBusy) return;
+
+  // 先保留純文字紀錄，再清除音訊。
+  dashboardSnapshot = createDashboardSnapshot();
+
+  cancelSpeech();
+  stopMicrophone();
+  clearAudio();
+  updateParentFeedbackButtons();
+
+  $("recordStatus").textContent =
+    "錄音已清除；完成紀錄與家長評價保留在本次總結中。";
+
+  renderDashboard(dashboardSnapshot);
+
+  $("dashboard").hidden = false;
+  $("dashboardTitle").focus();
+  $("dashboard").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+async function copyNotionSummary() {
+  if (!dashboardSnapshot) return;
+
+  const text = buildNotionSummary(dashboardSnapshot);
+
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard unavailable");
+    }
+
+    await navigator.clipboard.writeText(text);
+
+    $("exportStatus").textContent =
+      "摘要已複製，可以貼到 Notion 的紀錄頁。";
+  } catch {
+    // 保留手動複製方式。
+    const textarea = $("summaryText");
+
+    $("dashboard").querySelector("details").open = true;
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    $("exportStatus").textContent =
+      "未能自動複製。摘要已選取，請使用裝置的「複製」。";
+  }
+}
+
+function csvCell(value) {
+  let text = String(value ?? "");
+
+  // 避免家長輸入的文字被試算表當成公式。
+  if (/^\s*[=+\-@]/.test(text)) {
+    text = "'" + text;
+  }
+
+  return '"' + text.replace(/"/g, '""') + '"';
+}
+
+function downloadDashboardCSV() {
+  if (!dashboardSnapshot) return;
+
+  const headers = [
+    "開始時間",
+    "總結時間",
+    "單字",
+    "中文",
+    "聽示範",
+    "錄音練習",
+    "回放",
+    "拼字完成",
+    "家長評價",
+    "家長備註"
+  ];
+
+  const yesNo = value => value ? "完成" : "未完成";
+
+  const rows = dashboardSnapshot.rows.map(row => [
+    dashboardSnapshot.startedAt,
+    dashboardSnapshot.summarizedAt,
+    row.word,
+    row.meaning,
+    yesNo(row.listened),
+    yesNo(row.recorded),
+    yesNo(row.replayed),
+    yesNo(row.spelled),
+    row.rating || "未評價",
+    row.note
+  ]);
+
+  const csv = [headers, ...rows]
+    .map(row => row.map(csvCell).join(","))
+    .join("\r\n");
+
+  const blob = new Blob(
+    ["\uFEFF" + csv],
+    { type: "text/csv;charset=utf-8;" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download =
+    `english-review-${dashboardSnapshot.startedAt.slice(0, 10)}.csv`;
+
+  document.body.append(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+  $("exportStatus").textContent =
+    "CSV 已交由瀏覽器下載；若出現檔案預覽，請使用分享／儲存到檔案。";
+}
+
+function hideDashboard() {
+  $("dashboard").hidden = true;
+  dashboardSnapshot = null;
+}
+
+$("copySummary").onclick = copyNotionSummary;
+$("downloadCSV").onclick = downloadDashboardCSV;
+
+$("returnPractice").onclick = () => {
+  hideDashboard();
+
+  $("hearWord").focus();
+  $("word").scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+};
+
+$("newPractice").onclick = () => {
+  if (recordingBusy) return;
+
+  const confirmed = window.confirm(
+    "確定開始新的練習？本次評價、備註與完成紀錄將清除。" +
+    "如果需要保存，請先複製摘要或下載 CSV。"
+  );
+
+  if (!confirmed) return;
+
+  cancelSpeech();
+  stopMicrophone();
+  clearAudio();
+
+  completed = new Set();
+  resetPracticeFeedback();
+
+  index = 0;
+  sessionStartedAt = new Date();
+
+  hideDashboard();
+  render();
+
+  $("recordStatus").textContent =
+    "已開始新的練習。本次單字清單保留，前次紀錄已清除。";
+
+  $("hearWord").focus();
+};
   
 function normalize(text) {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -679,11 +1210,17 @@ function validateImported(data) {
 function loadWords(list) {
   cancelSpeech();
   clearAudio();
+
   words = list;
   index = 0;
   completed = new Set();
+
   resetPracticeFeedback();
+  sessionStartedAt = new Date();
+
+  hideDashboard();
   render();
+
   $("parentStatus").textContent =
     `已載入 ${words.length} 個單字，可以開始練習。`;
 }
@@ -784,17 +1321,7 @@ $("import").addEventListener("change", async event => {
   }
 });
 
-$("end").onclick = () => {
-  cancelSpeech();
-  stopMicrophone();
-  clearAudio();
-  completed = new Set();
-  resetPracticeFeedback();
-  index = 0;
-  render();
-  $("recordStatus").textContent =
-    "本次錄音與進度已清除。可以關閉頁面，或重新開始。";
-};
+$("end").onclick = showDashboard;
 
 $("player").addEventListener("play", cancelSpeech);
 
