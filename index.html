@@ -1,9 +1,10 @@
-You<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>我的英文小練習</title>
+<style>
   .feedback-box {
     margin-top: 20px;
     padding: 18px;
@@ -46,7 +47,6 @@ You<!DOCTYPE html>
     .celebrate { animation: none; }
   }
 
- <style>
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 20px;
@@ -114,7 +114,22 @@ You<!DOCTYPE html>
     </div>
     <p id="voiceStatus" class="small" role="status"></p>
 
-       <section class="feedback-box" aria-label="練習鼓勵">
+      
+
+    <h2>🎙 說說看</h2>
+    <div class="row">
+      <button id="record" class="record">開始錄音</button>
+      <button id="stop" disabled>停止錄音</button>
+    </div>
+    <p id="recordStatus" class="status" role="status">
+      按下開始錄音，說完再按停止。
+    </p>
+    <audio id="player" controls hidden></audio>
+    <p class="small">
+      可用播放器聽自己的聲音。重新錄製或切換單字會清除目前錄音。
+    </p>
+
+ <section class="feedback-box" aria-label="練習鼓勵">
       <div id="practiceStars" class="practice-stars">
         聽示範 ○　錄音 ○　回放 ○　拼字 ○
       </div>
@@ -154,20 +169,7 @@ You<!DOCTYPE html>
     </details>
 
     <hr class="divider">
-
-    <h2>🎙 說說看</h2>
-    <div class="row">
-      <button id="record" class="record">開始錄音</button>
-      <button id="stop" disabled>停止錄音</button>
-    </div>
-    <p id="recordStatus" class="status" role="status">
-      按下開始錄音，說完再按停止。
-    </p>
-    <audio id="player" controls hidden></audio>
-    <p class="small">
-      可用播放器聽自己的聲音。重新錄製或切換單字會清除目前錄音。
-    </p>
-
+    
     <hr class="divider">
 
     <h2>✏️ 拼字練習</h2>
@@ -296,8 +298,7 @@ function updatePracticeStars() {
 
 function markPracticeStep(step, message) {
   const steps = getPracticeSteps();
-  const wasDone = steps[step];
-
+  
   steps[step] = true;
   updatePracticeStars();
 
@@ -316,7 +317,7 @@ function markPracticeStep(step, message) {
     return;
   }
 
-  if (!wasDone && message) {
+    if (message) {
     showEncouragement(message, true);
   }
 }
@@ -398,7 +399,9 @@ function render() {
   $("example").textContent = mode === "look" ? item.example : "";
   $("answer").value = "";
   $("feedback").textContent = "";
-  $("recordStatus").textContent = "按下開始錄音，說完再按停止。";
+  $("recordStatus").textContent = audioURL
+    ? "錄音已準備好，可以使用下方播放器回放。"
+    : "按下開始錄音，說完再按停止。";
   $("completion").textContent =
     `本次已完成拼字：${completed.size} / ${words.length}`;
   $("lookMode").classList.toggle("active", mode === "look");
@@ -588,10 +591,15 @@ function stopRecording() {
 
 function moveTo(newIndex) {
   if (recordingBusy || newIndex < 0 || newIndex >= words.length) return;
+
   cancelSpeech();
   clearAudio();
   index = newIndex;
   render();
+
+  if (mode === "listen") {
+    speak(words[index].word);
+  }
 }
 
 function parseList() {
