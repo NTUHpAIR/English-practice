@@ -552,7 +552,7 @@ async function startRecording() {
       $("player").hidden = false;
       $("recordStatus").textContent =
         "錄音完成！按下方播放器，聽自己的聲音。";
-            $("parentFeedbackMessage").textContent = "";
+      $("parentFeedbackMessage").textContent = "";
 
       markPracticeStep(
         "recorded",
@@ -648,6 +648,7 @@ function loadWords(list) {
   words = list;
   index = 0;
   completed = new Set();
+  resetPracticeFeedback();
   render();
   $("parentStatus").textContent =
     `已載入 ${words.length} 個單字，可以開始練習。`;
@@ -678,6 +679,10 @@ function checkAnswer() {
 
   if (normalize($("answer").value) === normalize(words[index].word)) {
     completed.add(index);
+        markPracticeStep(
+      "spelled",
+      "✨ 拼對了！你完成了拼字練習。"
+    );
     $("feedback").textContent = "🌟 你完成了！也可以錄下這個單字。";
     $("completion").textContent =
       `本次已完成拼字：${completed.size} / ${words.length}`;
@@ -750,6 +755,7 @@ $("end").onclick = () => {
   stopMicrophone();
   clearAudio();
   completed = new Set();
+  resetPracticeFeedback();
   index = 0;
   render();
   $("recordStatus").textContent =
@@ -757,6 +763,48 @@ $("end").onclick = () => {
 };
 
 $("player").addEventListener("play", cancelSpeech);
+
+$("player").addEventListener("ended", () => {
+  if (!audioURL || recordingBusy) return;
+
+  markPracticeStep(
+    "replayed",
+    "👏 很棒！你有聽自己的聲音。"
+  );
+});
+
+function giveParentFeedback(message, celebrate = false) {
+  if (!audioURL || recordingBusy) return;
+
+  const element = $("parentFeedbackMessage");
+  element.textContent = message;
+  element.classList.remove("celebrate");
+
+  if (celebrate) {
+    void element.offsetWidth;
+    element.classList.add("celebrate");
+  }
+}
+
+$("parentTry").onclick = () => {
+  giveParentFeedback(
+    "🔁 Try again — 我們再聽一次示範，再試一次。"
+  );
+};
+
+$("parentGood").onclick = () => {
+  giveParentFeedback(
+    "🌟 Good! 家長給你一個讚！",
+    true
+  );
+};
+
+$("parentExcellent").onclick = () => {
+  giveParentFeedback(
+    "🎉 Excellent! 家長覺得這一次很棒！",
+    true
+  );
+};
 
 window.addEventListener("pagehide", () => {
   if (recorder && recorder.state !== "inactive") {
