@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的英文小練習</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px;
+    font-family: system-ui, "Microsoft JhengHei", sans-serif;
+    background: #f3f7ff; color: #24334b;
+  }
+  main { max-width: 720px; margin: auto; }
+  h1 { font-size: 26px; text-align: center; }
+  .card {
+    background: white; padding: 24px; margin: 16px 0;
+    border-radius: 20px; box-shadow: 0 4px 18px #24334b0d;
+  }
+  .center { text-align: center; }
+  .word {
+    font-size: clamp(32px, 8vw, 52px);
+    font-weight: 700; overflow-wrap: anywhere;
+    margin: 20px 0 8px;
+  }
+  .meaning { font-size: 22px; }
+  .example { line-height: 1.7; min-height: 28px; }
+  .row {
+    display: flex; flex-wrap: wrap;
+    justify-content: center; gap: 10px; margin: 14px 0;
+  }
+  button, .file-label {
+    padding: 13px 18px; border: 0; border-radius: 12px;
+    background: #e8efff; color: #24334b;
+    font: inherit; font-size: 17px;
+    min-height: 48px; cursor: pointer;
+  }
+  button.primary { background: #396be8; color: white; }
+  button.record { background: #ffebed; color: #a52736; }
+  button.active { outline: 3px solid #396be8; }
+  button:disabled { opacity: .45; cursor: default; }
+  input[type="text"], textarea {
+    width: 100%; padding: 14px; border: 2px solid #dce4f3;
+    border-radius: 12px; font: inherit; font-size: 20px;
+  }
+  textarea { font-size: 16px; min-height: 170px; }
+  input:focus, textarea:focus {
+    outline: 2px solid #396be8; outline-offset: 2px;
+  }
+  .status { min-height: 26px; line-height: 1.6; }
+  .small { font-size: 14px; line-height: 1.7; color: #53647c; }
+  .divider { border: 0; border-top: 1px solid #e3e9f4; margin: 24px 0; }
+  audio { width: 100%; margin-top: 10px; }
+  summary { cursor: pointer; font-size: 18px; padding: 8px 0; }
+  label { display: block; margin: 10px 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🌈 我的英文小練習</h1>
+
+  <section class="card center">
+    <div id="progress"></div>
+    <div class="word" id="word"></div>
+    <div class="meaning" id="meaning"></div>
+    <p class="example" id="example"></p>
+
+    <div class="row">
+      <button id="hearWord" class="primary">🔊 聽單字</button>
+      <button id="hearExample">🔊 聽例句</button>
+    </div>
+    <p id="voiceStatus" class="small" role="status"></p>
+
+    <hr class="divider">
+
+    <h2>🎙 說說看</h2>
+    <div class="row">
+      <button id="record" class="record">開始錄音</button>
+      <button id="stop" disabled>停止錄音</button>
+    </div>
+    <p id="recordStatus" class="status" role="status">
+      按下開始錄音，說完再按停止。
+    </p>
+    <audio id="player" controls hidden></audio>
+    <p class="small">
+      可用播放器聽自己的聲音。重新錄製或切換單字會清除目前錄音。
+    </p>
+
+    <hr class="divider">
+
+    <h2>✏️ 拼字練習</h2>
+    <div class="row">
+      <button id="lookMode" class="active" aria-pressed="true">看字跟打</button>
+      <button id="listenMode" aria-pressed="false">聽音拼字</button>
+    </div>
+
+    <label for="answer">我的答案</label>
+    <input id="answer" type="text" placeholder="在這裡輸入英文"
+      autocomplete="off" autocapitalize="none"
+      autocorrect="off" spellcheck="false">
+
+    <div class="row">
+      <button id="check" class="primary">檢查</button>
+      <button id="hint">給我提示</button>
+    </div>
+    <p id="feedback" class="status" role="status"></p>
+
+    <div class="row">
+      <button id="previous">← 上一個</button>
+      <button id="next">下一個 →</button>
+    </div>
+    <p id="completion" class="small"></p>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>👩‍👦 家長設定：更換本週單字</summary>
+      <p class="small">
+        每行一個單字，格式是：英文 | 中文 | 例句。<br>
+        也可以從三欄表格貼上，以 Tab 分隔。<br>
+        請只放入已確認的課堂資料；例句不是必填。
+      </p>
+      <label for="wordList">本週單字清單</label>
+      <textarea id="wordList" spellcheck="false"></textarea>
+
+      <div class="row">
+        <button id="apply" class="primary">使用這份清單</button>
+        <button id="export">下載單字檔</button>
+        <label class="file-label">
+          載入單字檔
+          <input id="import" type="file" accept=".json,application/json" hidden>
+        </label>
+      </div>
+
+      <p id="parentStatus" class="status" role="status"></p>
+
+      <label for="voice">英文示範聲音</label>
+      <select id="voice" style="width:100%;padding:12px;font-size:16px;"></select>
+      <p class="small">
+        請先試聽。可用聲音依裝置而異；
+        部分語音服務可能需要網路。
+      </p>
+    </details>
+  </section>
+
+  <div class="row">
+    <button id="end">結束練習並清除錄音</button>
+  </div>
+  <p class="small center">
+    本程式不傳送單字或錄音、不使用分析追蹤，
+    也不保存本次練習進度。<br>
+    重新整理頁面後會回到示範清單。
+  </p>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+let words = [
+  { word: "chicken", meaning: "雞肉", example: "I had chicken and rice." },
+  { word: "vegetables", meaning: "蔬菜", example: "I had vegetables." },
+  { word: "winter", meaning: "冬天", example: "I don't like winter." }
+];
+
+let index = 0;
+let mode = "look";
+let completed = new Set();
+let recorder = null;
+let stream = null;
+let audioURL = null;
+let recordingBusy = false;
+let selectedVoices = [];
+
+const hasSpeech = "speechSynthesis" in window;
+
+function normalize(text) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function stopMicrophone() {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  stream = null;
+}
+
+function clearAudio() {
+  $("player").pause();
+  $("player").removeAttribute("src");
+  $("player").load();
+  $("player").hidden = true;
+  if (audioURL) URL.revokeObjectURL(audioURL);
+  audioURL = null;
+}
+
+function cancelSpeech() {
+  if (hasSpeech) window.speechSynthesis.cancel();
+}
+
+function setRecordingBusy(busy) {
+  recordingBusy = busy;
+  ["record", "previous", "next", "apply", "export",
+   "lookMode", "listenMode", "hearWord", "hearExample", "end"]
+    .forEach(id => $(id).disabled = busy);
+  $("import").disabled = busy;
+  $("stop").disabled = true;
+
+  if (!busy) {
+    $("previous").disabled = index === 0;
+    $("next").disabled = index === words.length - 1;
+    $("hearWord").disabled = !hasSpeech;
+    $("hearExample").disabled = !hasSpeech || !words[index].example;
+  }
+}
+
+function render() {
+  const item = words[index];
+  $("progress").textContent = `第 ${index + 1} / ${words.length} 個`;
+  $("word").textContent = mode === "look" ? item.word : "🎧 聽音拼字";
+  $("meaning").textContent = item.meaning;
+  $("example").textContent = mode === "look" ? item.example : "";
+  $("answer").value = "";
+  $("feedback").textContent = "";
+  $("recordStatus").textContent = "按下開始錄音，說完再按停止。";
+  $("completion").textContent =
+    `本次已完成拼字：${completed.size} / ${words.length}`;
+  $("lookMode").classList.toggle("active", mode === "look");
+  $("listenMode").classList.toggle("active", mode === "listen");
+  $("lookMode").setAttribute("aria-pressed", mode === "look");
+  $("listenMode").setAttribute("aria-pressed", mode === "listen");
+  setRecordingBusy(false);
+}
+
+function refreshVoices() {
+  if (!hasSpeech) {
+    $("voiceStatus").textContent = "此瀏覽器未提供文字朗讀功能。";
+    return;
+  }
+  const oldValue = $("voice").value;
+  selectedVoices = window.speechSynthesis.getVoices()
+    .filter(voice => /^en([-_]|$)/i.test(voice.lang));
+
+  $("voice").replaceChildren();
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "使用裝置預設英文聲音";
+  $("voice").append(defaultOption);
+
+  selectedVoices.forEach((voice, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent =
+      `${voice.name} (${voice.lang})${voice.localService ? "・本機" : "・非本機"}`;
+    $("voice").append(option);
+  });
+
+  if (oldValue !== "" && Number(oldValue) < selectedVoices.length) {
+    $("voice").value = oldValue;
+  }
+
+  $("voiceStatus").textContent = selectedVoices.length
+    ? "家長可在設定區選擇英文示範聲音。"
+    : "未找到明確的英文聲音，請先試聽裝置預設朗讀。";
+}
+
+function speak(text) {
+  if (!hasSpeech || recordingBusy) return;
+  $("player").pause();
+  cancelSpeech();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.85;
+
+  const selected = $("voice").value;
+  if (selected !== "" && selectedVoices[Number(selected)]) {
+    utterance.voice = selectedVoices[Number(selected)];
+    utterance.lang = utterance.voice.lang;
+  }
+
+  utterance.onerror = () => {
+    $("voiceStatus").textContent =
+      "朗讀未完成，請再按一次，或在家長設定選擇其他聲音。";
+  };
+  window.speechSynthesis.speak(utterance);
+}
+
+async function startRecording() {
+  if (recordingBusy) return;
+
+  if (!window.isSecureContext ||
+      !navigator.mediaDevices?.getUserMedia) {
+    $("recordStatus").textContent =
+      "目前環境不能使用麥克風。請使用 HTTPS 網頁開啟，並允許麥克風。";
+    return;
+  }
+  if (!("MediaRecorder" in window)) {
+    $("recordStatus").textContent =
+      "此瀏覽器沒有可用的錄音功能，請更新系統後再試。";
+    return;
+  }
+
+  cancelSpeech();
+  clearAudio();
+  setRecordingBusy(true);
+  $("recordStatus").textContent = "正在請求麥克風權限……";
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false
+    });
+
+    const candidates = [
+      "audio/mp4",
+      "audio/webm;codecs=opus",
+      "audio/webm"
+    ];
+    const mimeType = candidates.find(type =>
+      MediaRecorder.isTypeSupported(type)
+    );
+
+    recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    const currentRecorder = recorder;
+    const chunks = [];
+    let failed = false;
+
+    currentRecorder.ondataavailable = event => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+
+    currentRecorder.onerror = () => {
+      failed = true;
+      stopMicrophone();
+      setRecordingBusy(false);
+      $("recordStatus").textContent = "錄音失敗，請重新嘗試。";
+    };
+
+    currentRecorder.onstop = () => {
+      stopMicrophone();
+      recorder = null;
+      setRecordingBusy(false);
+
+      if (failed || chunks.length === 0) {
+        $("recordStatus").textContent =
+          "沒有取得可播放的錄音，請重新嘗試。";
+        return;
+      }
+
+      const blob = new Blob(chunks, {
+        type: currentRecorder.mimeType || chunks[0].type
+      });
+      audioURL = URL.createObjectURL(blob);
+      $("player").src = audioURL;
+      $("player").hidden = false;
+      $("recordStatus").textContent =
+        "錄音完成！按下方播放器，聽自己的聲音。";
+    };
+
+    currentRecorder.start();
+    $("stop").disabled = false;
+    $("recordStatus").textContent = "🔴 正在錄音，說完請按「停止錄音」。";
+  } catch (error) {
+    stopMicrophone();
+    recorder = null;
+    setRecordingBusy(false);
+    $("recordStatus").textContent =
+      error.name === "NotAllowedError"
+        ? "麥克風未獲允許。請在瀏覽器設定允許後，再試一次。"
+        : "無法開始錄音，請確認麥克風可用，並重新嘗試。";
+  }
+}
+
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") {
+    $("stop").disabled = true;
+    $("recordStatus").textContent = "正在完成錄音……";
+    recorder.stop();
+    stopMicrophone();
+  }
+}
+
+function moveTo(newIndex) {
+  if (recordingBusy || newIndex < 0 || newIndex >= words.length) return;
+  cancelSpeech();
+  clearAudio();
+  index = newIndex;
+  render();
+}
+
+function parseList() {
+  const lines = $("wordList").value.split(/\r?\n/)
+    .map(line => line.trim()).filter(Boolean);
+
+  if (lines.length === 0) throw new Error("請先輸入至少一個單字。");
+  if (lines.length > 50) throw new Error("第一版最多一次放入 50 個單字。");
+
+  return lines.map((line, i) => {
+    const parts = line.includes("\t") ? line.split("\t") : line.split("|");
+    const word = (parts[0] || "").trim();
+    const meaning = (parts[1] || "").trim();
+    const example = parts.slice(2).join(" ").trim();
+
+    if (!word || !meaning) {
+      throw new Error(`第 ${i + 1} 行需要英文與中文兩欄。`);
+    }
+    if (word.length > 100 || meaning.length > 200 || example.length > 500) {
+      throw new Error(`第 ${i + 1} 行內容過長，請縮短。`);
+    }
+    return { word, meaning, example };
+  });
+}
+
+function validateImported(data) {
+  if (!data || !Array.isArray(data.words) ||
+      data.words.length === 0 || data.words.length > 50) {
+    throw new Error("檔案需要包含 1 至 50 個單字。");
+  }
+
+  return data.words.map((item, i) => {
+    if (!item || typeof item.word !== "string" ||
+        typeof item.meaning !== "string" ||
+        (item.example !== undefined && typeof item.example !== "string")) {
+      throw new Error(`第 ${i + 1} 個單字格式不正確。`);
+    }
+
+    const word = item.word.trim();
+    const meaning = item.meaning.trim();
+    const example = (item.example || "").trim();
+
+    if (!word || !meaning || word.length > 100 ||
+        meaning.length > 200 || example.length > 500) {
+      throw new Error(`第 ${i + 1} 個單字內容不完整或過長。`);
+    }
+    return { word, meaning, example };
+  });
+}
+
+function loadWords(list) {
+  cancelSpeech();
+  clearAudio();
+  words = list;
+  index = 0;
+  completed = new Set();
+  render();
+  $("parentStatus").textContent =
+    `已載入 ${words.length} 個單字，可以開始練習。`;
+}
+
+$("hearWord").onclick = () => speak(words[index].word);
+$("hearExample").onclick = () => speak(words[index].example);
+$("record").onclick = startRecording;
+$("stop").onclick = stopRecording;
+$("previous").onclick = () => moveTo(index - 1);
+$("next").onclick = () => moveTo(index + 1);
+
+$("lookMode").onclick = () => {
+  mode = "look";
+  render();
+};
+$("listenMode").onclick = () => {
+  mode = "listen";
+  render();
+  speak(words[index].word);
+};
+
+function checkAnswer() {
+  if (!normalize($("answer").value)) {
+    $("feedback").textContent = "先輸入你的答案，也可以按「給我提示」。";
+    return;
+  }
+
+  if (normalize($("answer").value) === normalize(words[index].word)) {
+    completed.add(index);
+    $("feedback").textContent = "🌟 你完成了！也可以錄下這個單字。";
+    $("completion").textContent =
+      `本次已完成拼字：${completed.size} / ${words.length}`;
+  } else {
+    $("feedback").textContent = "再聽一次，或按「給我提示」。";
+  }
+}
+
+$("check").onclick = checkAnswer;
+$("answer").addEventListener("keydown", event => {
+  if (event.key === "Enter") checkAnswer();
+});
+
+$("hint").onclick = () => {
+  $("feedback").textContent = `提示：${words[index].word}`;
+};
+
+$("apply").onclick = () => {
+  try {
+    loadWords(parseList());
+  } catch (error) {
+    $("parentStatus").textContent = error.message;
+  }
+};
+
+$("export").onclick = () => {
+  try {
+    const list = parseList();
+    const blob = new Blob(
+      [JSON.stringify({ version: 1, words: list }, null, 2)],
+      { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "english-words.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("parentStatus").textContent =
+      "單字檔已準備下載，可傳到 iPad 再載入。";
+  } catch (error) {
+    $("parentStatus").textContent = error.message;
+  }
+};
+
+$("import").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file || recordingBusy) return;
+
+  try {
+    if (file.size > 200000) throw new Error("檔案太大，請選擇單字 JSON 檔。");
+    const data = JSON.parse(await file.text());
+    const list = validateImported(data);
+    loadWords(list);
+    $("wordList").value = list
+      .map(item => `${item.word} | ${item.meaning} | ${item.example}`)
+      .join("\n");
+  } catch (error) {
+    $("parentStatus").textContent =
+      `無法載入：${error.message}`;
+  } finally {
+    event.target.value = "";
+  }
+});
+
+$("end").onclick = () => {
+  cancelSpeech();
+  stopMicrophone();
+  clearAudio();
+  completed = new Set();
+  index = 0;
+  render();
+  $("recordStatus").textContent =
+    "本次錄音與進度已清除。可以關閉頁面，或重新開始。";
+};
+
+$("player").addEventListener("play", cancelSpeech);
+
+window.addEventListener("pagehide", () => {
+  if (recorder && recorder.state !== "inactive") {
+    recorder.onstop = null;
+    recorder.ondataavailable = null;
+    recorder.stop();
+  }
+  recorder = null;
+  stopMicrophone();
+  clearAudio();
+  cancelSpeech();
+});
+
+$("wordList").value = words
+  .map(item => `${item.word} | ${item.meaning} | ${item.example}`)
+  .join("\n");
+
+if (hasSpeech) {
+  refreshVoices();
+  window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+}
+render();
+</script>
+</body>
+</html>
