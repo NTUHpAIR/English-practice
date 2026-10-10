@@ -166,6 +166,10 @@
 
       <p id="parentFeedbackMessage" class="status"
          role="status" aria-live="polite"></p>
+      <label for="parentNote">家長備註（選填）</label>
+      <textarea id="parentNote"
+        placeholder="例如：下次再練這個單字"
+        style="min-height:80px;"></textarea>
     </details>
 
     <hr class="divider">
@@ -261,6 +265,16 @@ const hasSpeech = "speechSynthesis" in window;
 // 每個單字各自記錄當次練習步驟。
 let practiceSteps = new Map();
 let praisedComplete = new Set();
+  // 只保留當次頁面中的評價與備註，不保存錄音。
+let parentReviews = new Map();
+
+function getParentReview() {
+  if (!parentReviews.has(index)) {
+    parentReviews.set(index, {
+      rating: "",
+      note: ""
+    });
+  }
 
 function getPracticeSteps() {
   if (!practiceSteps.has(index)) {
@@ -333,7 +347,19 @@ function updateParentFeedbackButtons() {
 function renderPracticeFeedback() {
   updatePracticeStars();
 
-  $("parentFeedbackMessage").textContent = "";
+  const review = getParentReview();
+
+  $("parentNote").value = review.note;
+
+  const labels = {
+    "Try again": "🔁 Try again",
+    "Good": "🌟 Good",
+    "Excellent": "🎉 Excellent"
+  };
+
+  $("parentFeedbackMessage").textContent = review.rating
+    ? `本次家長評價：${labels[review.rating]}`
+    : "尚未選擇家長評價。";
 
   if (praisedComplete.has(index)) {
     showEncouragement(
@@ -349,8 +375,8 @@ function renderPracticeFeedback() {
 function resetPracticeFeedback() {
   practiceSteps = new Map();
   praisedComplete = new Set();
+  parentReviews = new Map();
 }
-
   
 function normalize(text) {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -794,25 +820,41 @@ function giveParentFeedback(message, celebrate = false) {
   }
 }
 
+function saveParentRating(rating, message, celebrate = false) {
+  if (!audioURL || recordingBusy) return;
+
+  const review = getParentReview();
+  review.rating = rating;
+
+  giveParentFeedback(message, celebrate);
+}
+
 $("parentTry").onclick = () => {
-  giveParentFeedback(
+  saveParentRating(
+    "Try again",
     "🔁 Try again — 我們再聽一次示範，再試一次。"
   );
 };
 
 $("parentGood").onclick = () => {
-  giveParentFeedback(
+  saveParentRating(
+    "Good",
     "🌟 Good! 家長給你一個讚！",
     true
   );
 };
 
 $("parentExcellent").onclick = () => {
-  giveParentFeedback(
+  saveParentRating(
+    "Excellent",
     "🎉 Excellent! 家長覺得這一次很棒！",
     true
   );
 };
+
+$("parentNote").addEventListener("input", () => {
+  getParentReview().note = $("parentNote").value;
+});
 
 window.addEventListener("pagehide", () => {
   if (recorder && recorder.state !== "inactive") {
