@@ -232,7 +232,6 @@
         style="min-height:80px;"></textarea>
     </details>
 
-    <hr class="divider">
     
     <hr class="divider">
 
@@ -414,6 +413,10 @@ function getParentReview() {
       note: ""
     });
   }
+
+  return parentReviews.get(index);
+}
+
 
 function getPracticeSteps() {
   if (!practiceSteps.has(index)) {
