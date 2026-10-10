@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+You<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -256,7 +256,101 @@ let recordingBusy = false;
 let selectedVoices = [];
 
 const hasSpeech = "speechSynthesis" in window;
+// 每個單字各自記錄當次練習步驟。
+let practiceSteps = new Map();
+let praisedComplete = new Set();
 
+function getPracticeSteps() {
+  if (!practiceSteps.has(index)) {
+    practiceSteps.set(index, {
+      listened: false,
+      recorded: false,
+      replayed: false,
+      spelled: false
+    });
+  }
+  return practiceSteps.get(index);
+}
+
+function showEncouragement(message, celebrate = false) {
+  const element = $("encouragement");
+  element.textContent = message;
+  element.classList.remove("celebrate");
+
+  if (celebrate) {
+    void element.offsetWidth;
+    element.classList.add("celebrate");
+  }
+}
+
+function updatePracticeStars() {
+  const steps = getPracticeSteps();
+  const mark = done => done ? "⭐" : "○";
+
+  $("practiceStars").textContent =
+    `聽示範 ${mark(steps.listened)}　` +
+    `錄音 ${mark(steps.recorded)}　` +
+    `回放 ${mark(steps.replayed)}　` +
+    `拼字 ${mark(steps.spelled)}`;
+}
+
+function markPracticeStep(step, message) {
+  const steps = getPracticeSteps();
+  const wasDone = steps[step];
+
+  steps[step] = true;
+  updatePracticeStars();
+
+  const allDone =
+    steps.listened &&
+    steps.recorded &&
+    steps.replayed &&
+    steps.spelled;
+
+  if (allDone && !praisedComplete.has(index)) {
+    praisedComplete.add(index);
+    showEncouragement(
+      "🎉 Excellent effort! 你完成了聽、錄、回放和拼字！",
+      true
+    );
+    return;
+  }
+
+  if (!wasDone && message) {
+    showEncouragement(message, true);
+  }
+}
+
+function updateParentFeedbackButtons() {
+  const canGiveFeedback = Boolean(audioURL) && !recordingBusy;
+
+  ["parentTry", "parentGood", "parentExcellent"].forEach(id => {
+    $(id).disabled = !canGiveFeedback;
+  });
+}
+
+function renderPracticeFeedback() {
+  updatePracticeStars();
+
+  $("parentFeedbackMessage").textContent = "";
+
+  if (praisedComplete.has(index)) {
+    showEncouragement(
+      "🌟 這個單字的四個練習步驟已完成！"
+    );
+  } else {
+    showEncouragement("準備好了嗎？先聽聽看！");
+  }
+
+  updateParentFeedbackButtons();
+}
+
+function resetPracticeFeedback() {
+  practiceSteps = new Map();
+  praisedComplete = new Set();
+}
+
+  
 function normalize(text) {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -293,6 +387,7 @@ function setRecordingBusy(busy) {
     $("hearWord").disabled = !hasSpeech;
     $("hearExample").disabled = !hasSpeech || !words[index].example;
   }
+    updateParentFeedbackButtons();
 }
 
 function render() {
@@ -311,7 +406,12 @@ function render() {
   $("lookMode").setAttribute("aria-pressed", mode === "look");
   $("listenMode").setAttribute("aria-pressed", mode === "listen");
   setRecordingBusy(false);
+  renderPracticeFeedback();
+
+  
 }
+  
+
 
 function refreshVoices() {
   if (!hasSpeech) {
@@ -361,6 +461,17 @@ function speak(text) {
     utterance.lang = utterance.voice.lang;
   }
 
+    const spokenIndex = index;
+
+  utterance.onend = () => {
+    if (index === spokenIndex && !recordingBusy) {
+      markPracticeStep(
+        "listened",
+        "👂 很棒！你聽完了示範聲音。"
+      );
+    }
+  };
+  
   utterance.onerror = () => {
     $("voiceStatus").textContent =
       "朗讀未完成，請再按一次，或在家長設定選擇其他聲音。";
@@ -441,6 +552,15 @@ async function startRecording() {
       $("player").hidden = false;
       $("recordStatus").textContent =
         "錄音完成！按下方播放器，聽自己的聲音。";
+            $("parentFeedbackMessage").textContent = "";
+
+      markPracticeStep(
+        "recorded",
+        "🌟 Good! 你完成一次錄音！"
+      );
+
+      updateParentFeedbackButtons();
+
     };
 
     currentRecorder.start();
