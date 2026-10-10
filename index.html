@@ -1170,7 +1170,9 @@ function parseList() {
   if (lines.length > 50) throw new Error("第一版最多一次放入 50 個單字。");
 
   return lines.map((line, i) => {
-    const parts = line.includes("\t") ? line.split("\t") : line.split("|");
+    const parts = line.includes("\t")
+  ? line.split("\t")
+  : line.split(/[|｜]/);
     const word = (parts[0] || "").trim();
     const meaning = (parts[1] || "").trim();
     const example = parts.slice(2).join(" ").trim();
